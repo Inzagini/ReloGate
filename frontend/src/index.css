@@ -234,30 +234,121 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Split Screen Layout */
 .app-layout {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   overflow: hidden;
-  height: calc(100vh - 70px);
+  height: calc(100dvh - 70px);
+  position: relative;
 }
 
-/* Panels */
+/* Chat Panel — full width, fixed height, internal scroll */
 .chat-panel {
-  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   background: rgba(11, 15, 25, 0.4);
   height: 100%;
+  overflow: hidden;
 }
 
+/* Workspace Overlay Backdrop */
+.workspace-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  animation: fade-in 0.2s ease;
+}
+
+/* Workspace slide-in drawer */
 .workspace-panel {
+  position: fixed;
+  top: 70px; /* below header */
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 92vw;
+  background: rgba(13, 18, 35, 0.97);
+  backdrop-filter: blur(20px);
+  border-left: 1px solid var(--border-color);
+  z-index: 300;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  transform: translateX(100%);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.workspace-panel.open {
+  transform: translateX(0);
+}
+
+.workspace-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.workspace-panel-title {
+  font-family: var(--font-heading);
+  font-size: 17px;
+  font-weight: 700;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.workspace-close-btn {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.workspace-close-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}
+
+.workspace-panel-body {
+  flex: 1;
   overflow-y: auto;
-  background: rgba(15, 23, 42, 0.25);
-  padding: 24px;
-  gap: 24px;
+  padding: 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Toggle button in header */
+.workspace-toggle-btn {
+  background: var(--accent-gradient);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.workspace-toggle-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.45);
 }
 
 /* Chat Messages */

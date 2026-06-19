@@ -112,6 +112,7 @@ export default function App() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   
   // Payment State
   const [paymentToken, setPaymentToken] = useState<string | null>(null);
@@ -131,10 +132,14 @@ export default function App() {
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
 
-  // Auto scroll chat
+  // Auto scroll chat — scroll the container, not the page
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = chatMessagesRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [messages, isTyping]);
 
   // Handle Profile Submission
@@ -523,16 +528,25 @@ export default function App() {
           ReloGate AI
           <span className="logo-badge">Amoy Mock USDC</span>
         </div>
-        <div className="header-status">
-          <span className="status-dot active"></span>
-          Assistant Online
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className="header-status">
+            <span className="status-dot active"></span>
+            Assistant Online
+          </div>
+          <button
+            className="workspace-toggle-btn"
+            onClick={() => setWorkspaceOpen(prev => !prev)}
+            title={workspaceOpen ? 'Close Workspace' : 'Open Workspace'}
+          >
+            {workspaceOpen ? '✕ Close' : '⚡ Workspace'}
+          </button>
         </div>
       </header>
 
-      {/* Main Workspace Grid */}
+      {/* Main Chat Area — full width */}
       <main className="app-layout">
         
-        {/* LEFT PANEL: Chat Assistant */}
+        {/* CHAT PANEL: full area */}
         <section className="chat-panel">
           <div className="chat-header">
             <div className="agent-avatar"><IconSparkles /></div>
@@ -542,7 +556,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="chat-messages">
+          <div className="chat-messages" ref={chatMessagesRef}>
             {messages.map((msg, idx) => (
               <div key={idx} className={`message-bubble ${msg.role}`}>
                 <div className="message-content">
@@ -562,7 +576,6 @@ export default function App() {
                 </div>
               </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
 
           <form onSubmit={handleSendMessage} className="chat-input-bar">
@@ -582,9 +595,22 @@ export default function App() {
           </form>
         </section>
 
-        {/* RIGHT PANEL: Workspace checklist & Commerce */}
-        <section className="workspace-panel">
-          
+      </main>
+
+      {/* WORKSPACE OVERLAY PANEL */}
+      {/* Backdrop */}
+      {workspaceOpen && (
+        <div className="workspace-backdrop" onClick={() => setWorkspaceOpen(false)} />
+      )}
+
+      {/* Slide-in drawer */}
+      <aside className={`workspace-panel ${workspaceOpen ? 'open' : ''}`}>
+        <div className="workspace-panel-header">
+          <span className="workspace-panel-title">Relocation Workspace</span>
+          <button className="workspace-close-btn" onClick={() => setWorkspaceOpen(false)}>✕</button>
+        </div>
+
+        <div className="workspace-panel-body">
           {/* Profile Card */}
           <div className="panel-card">
             <div className="card-header">
@@ -602,9 +628,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* Payment status strip — only shows after payment, compact reminder */}
+          {/* Payment status strip */}
           {paymentVerified && (
-            <div className="unlocked-banner" style={{ margin: '0' }}>
+            <div className="unlocked-banner">
               <div className="unlocked-text"><IconUnlock /> Anmeldung Pack Unlocked</div>
               <button onClick={handleDownloadPDF} className="btn btn-success btn-sm" disabled={downloading}>
                 {downloading ? <div className="spinner" /> : <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><IconDownload /> Download PDF</span>}
@@ -612,8 +638,8 @@ export default function App() {
             </div>
           )}
 
-          {/* Relocation Checklist — collapsible with sub-steps */}
-          <div className="panel-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Relocation Checklist */}
+          <div className="panel-card checklist-card">
             <div className="card-header">
               <h3 className="card-title">Checklist Progress</h3>
               <span className="logo-badge">{progressPercent}% Done</span>
@@ -623,7 +649,7 @@ export default function App() {
               <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }}></div>
             </div>
 
-            <div className="checklist-list" style={{ overflowY: 'auto', flex: 1, marginTop: '12px' }}>
+            <div className="checklist-list">
               {checklist.map(item => {
                 const isExpanded = !!expandedSteps[item.id];
                 return (
@@ -680,10 +706,9 @@ export default function App() {
               </ul>
             </div>
           )}
+        </div>
+      </aside>
 
-        </section>
-
-      </main>
     </div>
   );
 }
