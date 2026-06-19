@@ -203,7 +203,10 @@ export default function App() {
                   const updated = [...prev];
                   const lastIdx = updated.length - 1;
                   if (lastIdx >= 0 && updated[lastIdx].role === 'assistant') {
-                    updated[lastIdx].content += data.text;
+                    updated[lastIdx] = {
+                      ...updated[lastIdx],
+                      content: updated[lastIdx].content + data.text
+                    };
                   }
                   return updated;
                 });
