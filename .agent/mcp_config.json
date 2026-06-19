@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "tavily": {
+      "command": "npx",
+      "args": ["-y", "tavily-mcp"],
+      "env": {
+        "TAVILY_API_KEY": "PLACEHOLDER_TAVILY_API_KEY"
+      }
+    },
+    "circle": {
+      "serverUrl": "https://api.circle.com/v1/codegen/mcp"
+    }
+  }
+}
