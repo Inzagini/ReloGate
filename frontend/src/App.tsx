@@ -12,12 +12,19 @@ interface UserProfile {
   relocationDate: string;
 }
 
+interface SubStep {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 interface ChecklistItem {
   id: string;
   title: string;
   description: string;
   priority: string;
   completed: boolean;
+  subSteps: SubStep[];
 }
 
 interface ChatMessage {
@@ -80,10 +87,27 @@ const IconCheck = () => (
   </svg>
 );
 
+const IconChevron = ({ isOpen }: { isOpen: boolean }) => (
+  <svg 
+    width="14" 
+    height="14" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+    style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
 export default function App() {
   // App State
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [expandedSteps, setExpandedSteps] = useState<Record<string, boolean>>({});
   const [recommendations, setRecommendations] = useState<{ summary: string; tips: string[] } | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -227,11 +251,26 @@ export default function App() {
     }
   };
 
-  // Toggle checklist checkbox locally
+  // Toggle checklist item completed
   const toggleChecklistItem = (id: string) => {
     setChecklist(prev =>
       prev.map(item => (item.id === id ? { ...item, completed: !item.completed } : item))
     );
+  };
+
+  // Toggle sub-step completed
+  const toggleSubStep = (itemId: string, subId: string) => {
+    setChecklist(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      const newSubs = item.subSteps.map(s => s.id === subId ? { ...s, completed: !s.completed } : s);
+      const allDone = newSubs.every(s => s.completed);
+      return { ...item, subSteps: newSubs, completed: allDone };
+    }));
+  };
+
+  // Toggle checklist item expanded/collapsed
+  const toggleExpandedStep = (id: string) => {
+    setExpandedSteps(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   // Simulated USDC Payment Verification
@@ -299,33 +338,65 @@ export default function App() {
     }
   };
 
+  // Inline payment card rendered inside a chat bubble
+  const InlinePaymentWidget = () => {
+    if (paymentVerified) {
+      return (
+        <div className="inline-payment-card">
+          <div className="unlocked-banner-inline">
+            <div className="unlocked-text"><IconUnlock /> Relocation Pack Unlocked</div>
+            <button onClick={handleDownloadPDF} className="btn btn-success btn-sm" disabled={downloading}>
+              {downloading ? <div className="spinner" /> : <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><IconDownload /> Download PDF</span>}
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="inline-payment-card">
+        <div className="premium-content-inline">
+          <div className="premium-title" style={{ fontSize: '14px' }}>
+            <IconLock /> Unlock Pre-filled Anmeldung PDF
+          </div>
+          <div className="premium-desc">Instantly generate and download your personalized address registration form.</div>
+        </div>
+        <div className="premium-action-row">
+          <div className="usdc-price" style={{ fontSize: '18px' }}>
+            1.00 <span className="usdc-logo">$</span>
+          </div>
+          <button onClick={handleSimulatePayment} className="btn btn-premium btn-sm" disabled={isVerifyingPayment}>
+            {isVerifyingPayment ? <div className="spinner" /> : 'Simulate 1 USDC'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Parse markdown-like content to HTML for assistant bubbles
   const renderMessageContent = (content: string) => {
-    return content.split('\n').map((line, idx) => {
-      // Headers ###
-      if (line.startsWith('### ')) {
-        return <h3 key={idx}>{line.replace('### ', '')}</h3>;
+    // Split on [PAYMENT_WIDGET] token to interleave the widget
+    const segments = content.split('[PAYMENT_WIDGET]');
+    return segments.flatMap((segment, segIdx) => {
+      const lines = segment.split('\n').map((line, idx) => {
+        const key = `${segIdx}-${idx}`;
+        if (line.startsWith('### ')) return <h3 key={key}>{line.replace('### ', '')}</h3>;
+        if (line.includes('**')) {
+          const parts = line.split('**');
+          return <p key={key}>{parts.map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part))}</p>;
+        }
+        if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+          return <li key={key}>{line.trim().replace(/^[-*]\s+/, '')}</li>;
+        }
+        if (/^\d+\.\s+/.test(line.trim())) {
+          return <li key={key} style={{ listStyleType: 'decimal' }}>{line.trim().replace(/^\d+\.\s+/, '')}</li>;
+        }
+        return line.trim() ? <p key={key}>{line}</p> : <div key={key} style={{ height: '8px' }} />;
+      });
+      // After every segment except the last, insert payment widget
+      if (segIdx < segments.length - 1) {
+        lines.push(<InlinePaymentWidget key={`widget-${segIdx}`} />);
       }
-      // Bold text **
-      if (line.includes('**')) {
-        const parts = line.split('**');
-        return (
-          <p key={idx}>
-            {parts.map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part))}
-          </p>
-        );
-      }
-      // List items - or * or numbers
-      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
-        const text = line.trim().replace(/^[-*]\s+/, '');
-        return <li key={idx}>{text}</li>;
-      }
-      if (/^\d+\.\s+/.test(line.trim())) {
-        const text = line.trim().replace(/^\d+\.\s+/, '');
-        return <li key={idx} style={{ listStyleType: 'decimal' }}>{text}</li>;
-      }
-      // Standard line
-      return line.trim() ? <p key={idx}>{line}</p> : <div key={idx} style={{ height: '8px' }} />;
+      return lines;
     });
   };
 
@@ -531,61 +602,18 @@ export default function App() {
             </div>
           </div>
 
-          {/* USDC Premium Pack Card */}
-          <div className="panel-card premium-card">
-            {!paymentVerified ? (
-              <div className="premium-content">
-                <div className="premium-info">
-                  <h3 className="premium-title">
-                    <IconLock />
-                    Unlock Pre-filled Anmeldung Form
-                  </h3>
-                  <span className="premium-desc">Generates a complete, downloadable German address registration PDF.</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div className="usdc-price">
-                    1.00
-                    <span className="usdc-logo">S</span>
-                  </div>
-                  <button 
-                    onClick={handleSimulatePayment} 
-                    className="btn btn-premium"
-                    disabled={isVerifyingPayment}
-                  >
-                    {isVerifyingPayment ? (
-                      <div className="spinner"></div>
-                    ) : (
-                      'Simulate USDC Payment'
-                    )}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="unlocked-banner">
-                <div className="unlocked-text">
-                  <IconUnlock />
-                  Relocation PDF Form Unlocked
-                </div>
-                <button 
-                  onClick={handleDownloadPDF} 
-                  className="btn btn-success"
-                  disabled={downloading}
-                >
-                  {downloading ? (
-                    <div className="spinner"></div>
-                  ) : (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <IconDownload />
-                      Download prefilled PDF
-                    </span>
-                  )}
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Payment status strip — only shows after payment, compact reminder */}
+          {paymentVerified && (
+            <div className="unlocked-banner" style={{ margin: '0' }}>
+              <div className="unlocked-text"><IconUnlock /> Anmeldung Pack Unlocked</div>
+              <button onClick={handleDownloadPDF} className="btn btn-success btn-sm" disabled={downloading}>
+                {downloading ? <div className="spinner" /> : <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><IconDownload /> Download PDF</span>}
+              </button>
+            </div>
+          )}
 
-          {/* Relocation Checklist */}
-          <div className="panel-card" style={{ flex: 1 }}>
+          {/* Relocation Checklist — collapsible with sub-steps */}
+          <div className="panel-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div className="card-header">
               <h3 className="card-title">Checklist Progress</h3>
               <span className="logo-badge">{progressPercent}% Done</span>
@@ -595,21 +623,49 @@ export default function App() {
               <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }}></div>
             </div>
 
-            <div className="checklist-list">
-              {checklist.map(item => (
-                <div key={item.id} className={`checklist-item ${item.completed ? 'completed' : ''}`}>
-                  <div 
-                    className={`checklist-checkbox ${item.completed ? 'checked' : ''}`}
-                    onClick={() => toggleChecklistItem(item.id)}
-                  >
-                    {item.completed && <IconCheck />}
+            <div className="checklist-list" style={{ overflowY: 'auto', flex: 1, marginTop: '12px' }}>
+              {checklist.map(item => {
+                const isExpanded = !!expandedSteps[item.id];
+                return (
+                  <div key={item.id} className={`checklist-item ${item.completed ? 'completed' : ''}`} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 0 }}>
+                    <div className="checklist-item-header">
+                      <div className="checklist-item-header-left">
+                        <div
+                          className={`checklist-checkbox ${item.completed ? 'checked' : ''}`}
+                          onClick={() => toggleChecklistItem(item.id)}
+                        >
+                          {item.completed && <IconCheck />}
+                        </div>
+                        <div className="checklist-item-content">
+                          <span className="checklist-item-title">{item.title}</span>
+                          <span className="checklist-item-desc">{item.description}</span>
+                        </div>
+                      </div>
+                      <div className="checklist-chevron" onClick={() => toggleExpandedStep(item.id)}>
+                        <IconChevron isOpen={isExpanded} />
+                      </div>
+                    </div>
+
+                    {isExpanded && item.subSteps && item.subSteps.length > 0 && (
+                      <div className="checklist-item-body">
+                        <div className="substeps-list">
+                          {item.subSteps.map(sub => (
+                            <div key={sub.id} className={`substep-item ${sub.completed ? 'completed' : ''}`}>
+                              <div
+                                className={`substep-checkbox ${sub.completed ? 'checked' : ''}`}
+                                onClick={() => toggleSubStep(item.id, sub.id)}
+                              >
+                                {sub.completed && <IconCheck />}
+                              </div>
+                              {sub.title}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="checklist-item-content">
-                    <span className="checklist-item-title">{item.title}</span>
-                    <span className="checklist-item-desc">{item.description}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
