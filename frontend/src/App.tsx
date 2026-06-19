@@ -516,7 +516,7 @@ export default function App() {
 
   // 2. Render Main Split Screen Layout
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
       {/* Header */}
       <header className="app-header">
         <div className="logo">
